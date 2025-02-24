@@ -4,15 +4,16 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile  # Make sure your Dockerfile is in the same directory
+      dockerfile: Dockerfile
     container_name: java_app
     restart: always
     volumes:
       - .:/app
     working_dir: /app
-    command: tail -f /dev/null  # Keeps the container running
+    command: tail -f /dev/null
     depends_on:
-      - db
+      db:
+        condition: service_healthy # Ensure db is healthy before app starts
     environment:
       - MYSQL_HOST=db
       - MYSQL_USER=root
@@ -32,6 +33,11 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck: # Add health check
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mysql_data:

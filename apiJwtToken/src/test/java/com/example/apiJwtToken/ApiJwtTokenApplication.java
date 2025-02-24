@@ -1,10 +1,10 @@
-package com.example.apiJwtToken; // Root package
+package com.example.apiJwtToken;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ApiJwtTokenApplication { // This is the standard name
+public class ApiJwtTokenApplication {
     public static void main(String[] args) {
         SpringApplication.run(ApiJwtTokenApplication.class, args);
     }
