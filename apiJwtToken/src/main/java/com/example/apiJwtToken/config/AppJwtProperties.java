@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 public class AppJwtProperties {
 
     private String secret;
-    private String expirationMs;
+    private String expiration;
 
     // Getter and Setter for secret
     public String getSecret() {
@@ -20,12 +20,12 @@ public class AppJwtProperties {
     }
 
     // Getter and Setter for expirationMs
-    public String getExpirationMs() {
-        return expirationMs;
+    public String getExpiration() {
+        return expiration;
     }
 
-    public void setExpirationMs(String expirationMs) {
-        this.expirationMs = expirationMs;
+    public void setExpiration(String expirationMs) {
+        this.expiration = expirationMs;
     }
 
 }

@@ -19,6 +19,6 @@ class AppJwtPropertiesTest {
     @Test
     void propertiesShouldBeLoaded() {
         assertThat(appJwtProperties.getSecret()).isEqualTo("UT+NxI9nWRKsi8oMkEoVLFeXtUUaJKhdrELMqxZZt0fmRM3/memVVmlTXRlBfDGDFd4/BUu2CfbzFhBb0t0MZg==");
-        assertThat(appJwtProperties.getExpirationMs()).isEqualTo("3600000");
+        assertThat(appJwtProperties.getExpiration()).isEqualTo("3600000");
     }
 }
