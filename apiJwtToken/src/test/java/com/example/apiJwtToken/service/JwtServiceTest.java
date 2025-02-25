@@ -1,51 +1,139 @@
 package com.example.apiJwtToken.service;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import com.example.apiJwtToken.config.AppJwtProperties;
-
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
-import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(classes = AppJwtProperties.class)
-@EnableConfigurationProperties(AppJwtProperties.class)
 class JwtServiceTest {
 
-    @Autowired
-    private AppJwtProperties appJwtProperties;
     private JwtService jwtService;
-    // private final String secretKey = appJwtProperties.getSecret(); // Replace with your generated key
-    // private final long expirationMs = Long.parseLong(appJwtProperties.getExpirationMs());
+
+    // A valid Base64-encoded 32-byte key.
+    // For testing, we use 32 "a" characters ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    // Base64 encoding of that string is "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ=="
+    private static final String TEST_SECRET = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==";
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService(appJwtProperties.getSecret(), Long.parseLong(appJwtProperties.getExpirationMs()));
+        jwtService = new JwtService();
+        // Inject the secret key and expiration time (in milliseconds) into the service.
+        ReflectionTestUtils.setField(jwtService, "SECRET_KEY", TEST_SECRET);
+        // Set a default expiration of 5000 milliseconds (5 seconds)
+        ReflectionTestUtils.setField(jwtService, "jwtExpiration", 5000L);
     }
 
     @Test
-    void generateToken_ShouldReturnValidToken() {
-        UserDetails userDetails = new User("testUser", "password", new java.util.ArrayList<>());
+    void testGenerateToken_shouldContainUsername() {
+        UserDetails userDetails = User.withUsername("testuser")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
         String token = jwtService.generateToken(userDetails);
-
         assertNotNull(token);
 
-        Claims claims = Jwts.parser()
-                .setSigningKey(Base64.getDecoder().decode(appJwtProperties.getSecret()))
-                .parseClaimsJws(token)
-                .getBody();
+        // Verify that the token contains the correct username claim.
+        String extractedUsername = jwtService.extractUsername(token);
+        assertEquals("testuser", extractedUsername);
+    }
 
-        assertEquals("testUser", claims.getSubject());
-        assertTrue(claims.getExpiration().after(new Date()));
+    @Test
+    void testGenerateTokenWithExtraClaims_shouldContainExtraClaims() {
+        UserDetails userDetails = User.withUsername("testuser")
+                .password("password")
+                .authorities(new ArrayList<>()) // No roles
+                .build();
+
+        // Use a mutable map instead of Collections.singletonMap
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("role", "admin");
+
+        String token = jwtService.generateToken(extraClaims, userDetails);
+        assertNotNull(token);
+
+        // Verify that the subject and the extra claim are present.
+        String extractedUsername = jwtService.extractUsername(token);
+        assertEquals("testuser", extractedUsername);
+
+        // Extract and verify the extra claim.
+        String role = jwtService.extractClaim(token, claims -> claims.get("role", String.class));
+        assertEquals("admin", role);
+    }
+
+    @Test
+    void testIsTokenValid_shouldReturnTrueForValidToken() {
+        UserDetails userDetails = User.withUsername("validuser")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
+        String token = jwtService.generateToken(userDetails);
+        assertTrue(jwtService.isTokenValid(token, userDetails));
+    }
+
+    @Test
+    void testIsTokenValid_shouldReturnFalseForInvalidUsername() {
+        UserDetails tokenOwner = User.withUsername("user1")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
+        String token = jwtService.generateToken(tokenOwner);
+        UserDetails otherUser = User.withUsername("user2")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
+        // The token was generated for "user1", so it should not be valid for "user2".
+        assertFalse(jwtService.isTokenValid(token, otherUser));
+    }
+
+    @Test
+    void testIsTokenExpired_shouldReturnFalseForFreshToken() {
+        UserDetails userDetails = User.withUsername("testuser")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
+        String token = jwtService.generateToken(userDetails);
+        // A freshly generated token should not be expired.
+        assertFalse(jwtService.isTokenExpired(token));
+    }
+
+    @Test
+    void testIsTokenExpired_shouldReturnTrueForExpiredToken() throws InterruptedException {
+        // Set a very short expiration time (e.g., 1000ms) for this test.
+        ReflectionTestUtils.setField(jwtService, "jwtExpiration", 1000L);
+        UserDetails userDetails = User.withUsername("testuser")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
+        String token = jwtService.generateToken(userDetails);
+        // Wait to ensure the token expires.
+        Thread.sleep(1500);
+        assertTrue(jwtService.isTokenExpired(token));
+    }
+
+    @Test
+    void testExtractClaim_shouldReturnCorrectExpiration() {
+        UserDetails userDetails = User.withUsername("testuser")
+                .password("password")
+                .authorities("ROLE_USER")
+                .build();
+        String token = jwtService.generateToken(userDetails);
+        Date expiration = jwtService.extractClaim(token, Claims::getExpiration);
+        assertNotNull(expiration);
+
+        // Calculate the expected expiration time.
+        long expectedExpirationTime = System.currentTimeMillis() + 5000L;
+        // Allow some margin for processing delays (e.g., within 1000 milliseconds).
+        long diff = Math.abs(expiration.getTime() - expectedExpirationTime);
+        assertTrue(diff < 1000, "Expiration time difference should be within acceptable range, but was " + diff);
     }
 }
