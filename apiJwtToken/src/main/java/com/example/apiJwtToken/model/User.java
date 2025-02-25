@@ -2,7 +2,6 @@ package com.example.apiJwtToken.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Entity
 @Table(name = "users")
@@ -22,7 +21,5 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    public void setPassword(String rawPassword) {
-        this.password = new BCryptPasswordEncoder().encode(rawPassword);
-    }
+    // Remove the custom setPassword method
 }
