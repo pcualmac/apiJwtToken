@@ -15,30 +15,42 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
-import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private CustomUserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
+    private AuthenticationProvider authenticationProvider; //Remove autowired
+
+    public SecurityConfig(CustomUserDetailsService userDetailsService) {
+        this.userDetailsService = userDetailsService;
+    }
+
+    public void setAuthenticationProvider(AuthenticationProvider authenticationProvider) {
+        this.authenticationProvider = authenticationProvider;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/auth/login").permitAll()
-                        .anyRequest().authenticated())
+                    .requestMatchers("/api/auth/login", "/api/auth/register", "/error").permitAll()
+                    .requestMatchers("/**").authenticated()
+                    .anyRequest().authenticated())
                 .sessionManagement(management -> management
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider());
+                .authenticationProvider(authenticationProvider()) // Use the bean method
+                .logout(logout -> logout
+                    .logoutUrl("/api/auth/logout")
+                    .addLogoutHandler(logoutHandler()));
+    
         return http.build();
     }
 
     @Bean
-    public BCryptPasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
@@ -54,7 +66,7 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-    
+
     @Bean
     public SecurityContextLogoutHandler logoutHandler() {
         return new SecurityContextLogoutHandler();

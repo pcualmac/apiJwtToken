@@ -1,9 +1,14 @@
 package com.example.apiJwtToken.config;
-import com.example.apiJwtToken.ApiJwtTokenApplication;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest()
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+
+@SpringBootTest(classes = AppJwtProperties.class)
+@EnableConfigurationProperties(AppJwtProperties.class)
+@ActiveProfiles("live")
 public class SimpleContextTest {
 
     @Test

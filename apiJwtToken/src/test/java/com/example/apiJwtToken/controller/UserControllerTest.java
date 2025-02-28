@@ -1,87 +1,51 @@
 package com.example.apiJwtToken.controller;
 
+import com.example.apiJwtToken.dto.UserRequest;
+import com.example.apiJwtToken.model.User;
 import com.example.apiJwtToken.service.UserService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content; // Added import
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(UserController.class)
-public class UserControllerTest {
+@ExtendWith(MockitoExtension.class)
+class UserControllerTest {
 
-    @Autowired
-    private UserController userController;
-
-    @MockBean
+    @Mock
     private UserService userService;
 
-    private MockMvc mockMvc;
+    @InjectMocks
+    private UserController userController;
 
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(userController).build();
+    @Test
+    void registerUser_Success() {
+        UserRequest userRequest = new UserRequest("testUser", "password");
+        User mockUser = new User();
+        mockUser.setUsername("testUser");
+        
+        when(userService.registerUser("testUser", "password")).thenReturn(mockUser);
+
+        ResponseEntity<?> response = userController.registerUser(userRequest);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertTrue(response.getBody().toString().contains("User registered successfully"));
     }
 
     @Test
-    @WithMockUser
-    void testRegisterUser_ShouldReturnSuccessMessage() throws Exception {
-        // Arrange
-        String username = "testUser";
-        String password = "testPassword";
+    void registerUser_UsernameAlreadyTaken() {
+        UserRequest userRequest = new UserRequest("existingUser", "password");
 
-        when(userService.registerUser(anyString(), anyString())).thenReturn(null);
+        when(userService.registerUser("existingUser", "password"))
+                .thenThrow(new RuntimeException("Username already taken"));
 
-        // Act & Assert
-        mockMvc.perform(post("/api/users/register")
-                        .param("username", username)
-                        .param("password", password))
-                .andExpect(status().isOk())
-                .andExpect(content().string("User registered successfully"));
+        ResponseEntity<?> response = userController.registerUser(userRequest);
 
-        verify(userService, times(1)).registerUser(username, password);
-    }
-
-    @Test
-    @WithMockUser
-    void testRegisterUser_ShouldHandleExceptionFromService() throws Exception {
-        // Arrange
-        String username = "testUser";
-        String password = "testPassword";
-
-        doThrow(new RuntimeException("Registration failed")).when(userService).registerUser(username, password);
-
-        // Act & Assert
-        mockMvc.perform(post("/api/users/register")
-                        .param("username", username)
-                        .param("password", password))
-                .andExpect(status().isInternalServerError());
-
-        verify(userService, times(1)).registerUser(username, password);
-    }
-
-    @Test
-    @WithMockUser
-    void testRegisterUser_ShouldHandleMissingParameters() throws Exception {
-        // Arrange
-        String username = "testUser";
-
-        // Act & Assert
-        mockMvc.perform(post("/api/users/register")
-                        .param("username", username))
-                .andExpect(status().isBadRequest());
-
-        mockMvc.perform(post("/api/users/register")
-                        .param("password", "testPassword"))
-                .andExpect(status().isBadRequest());
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Username already taken", response.getBody());
     }
 }

@@ -1,98 +1,112 @@
 package com.example.apiJwtToken.repository;
 
 import com.example.apiJwtToken.model.User;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
-
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.Sql.ExecutionPhase;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@ActiveProfiles("test") // Ensure you have a test profile
+@TestPropertySource(locations = "classpath:application-test.properties")
+@Sql(scripts = "classpath:schema.sql", executionPhase = ExecutionPhase.BEFORE_TEST_CLASS)
 class UserRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
 
-    @Test
-    void testSave_ShouldPersistUser() {
-        // Arrange
-        User user = new User();
-        user.setUsername("testUser");
-        user.setPassword("testPassword");
+    private User testUser;
 
-        // Act
-        User savedUser = userRepository.save(user);
-
-        // Assert
-        assertNotNull(savedUser.getId());
-        Optional<User> retrievedUser = userRepository.findById(savedUser.getId());
-        assertTrue(retrievedUser.isPresent());
-        assertEquals("testUser", retrievedUser.get().getUsername());
-        assertEquals("testPassword", retrievedUser.get().getPassword());
+    @BeforeEach
+    void setUp() {
+        testUser = new User();
+        testUser.setUsername("testUser");
+        testUser.setPassword("password");
+        userRepository.save(testUser);
     }
 
     @Test
-    void testFindByUsername_ShouldReturnUser_WhenUsernameExists() {
-        // Arrange
-        User user = new User();
-        user.setUsername("existingUser");
-        user.setPassword("password");
-        userRepository.save(user);
-
-        // Act
-        Optional<User> foundUser = userRepository.findByUsername("existingUser");
-
-        // Assert
+    void findByUsername_ShouldReturnUser_WhenUsernameExists() {
+        Optional<User> foundUser = userRepository.findByUsername("testUser");
         assertTrue(foundUser.isPresent());
-        assertEquals("existingUser", foundUser.get().getUsername());
+        assertEquals("testUser", foundUser.get().getUsername());
     }
 
     @Test
-    void testFindByUsername_ShouldReturnEmpty_WhenUsernameDoesNotExist() {
-        // Act
+    void findByUsername_ShouldReturnEmpty_WhenUsernameDoesNotExist() {
         Optional<User> foundUser = userRepository.findByUsername("nonExistentUser");
-
-        // Assert
         assertFalse(foundUser.isPresent());
     }
 
     @Test
-    void testDelete_ShouldRemoveUser() {
-        // Arrange
-        User user = new User();
-        user.setUsername("deleteUser");
-        user.setPassword("password");
-        User savedUser = userRepository.save(user);
+    void save_ShouldPersistUser_WhenUserIsValid() {
+        User newUser = new User();
+        newUser.setUsername("newUser");
+        newUser.setPassword("newPassword");
 
-        // Act
-        userRepository.delete(savedUser);
+        User savedUser = userRepository.save(newUser);
 
-        // Assert
-        Optional<User> deletedUser = userRepository.findById(savedUser.getId());
-        assertFalse(deletedUser.isPresent());
+        assertNotNull(savedUser.getId());
+        assertEquals("newUser", savedUser.getUsername());
     }
 
     @Test
-    void testUpdate_ShouldUpdateUser() {
-        //Arrange
-        User user = new User();
-        user.setUsername("originalUsername");
-        user.setPassword("originalPassword");
-        User savedUser = userRepository.save(user);
+    void findAll_ShouldReturnAllUsers() {
+        User anotherUser = new User();
+        anotherUser.setUsername("anotherUser");
+        anotherUser.setPassword("anotherPassword");
+        userRepository.save(anotherUser);
 
-        //Act
-        savedUser.setUsername("updatedUsername");
-        savedUser.setPassword("updatedPassword");
-        userRepository.save(savedUser);
+        List<User> users = userRepository.findAll();
+        assertEquals(2, users.size());
+        assertTrue(users.stream().anyMatch(user -> user.getUsername().equals("testUser")));
+        assertTrue(users.stream().anyMatch(user -> user.getUsername().equals("anotherUser")));
+    }
 
-        //Assert
-        Optional<User> updatedUser = userRepository.findById(savedUser.getId());
-        assertTrue(updatedUser.isPresent());
-        assertEquals("updatedUsername", updatedUser.get().getUsername());
-        assertEquals("updatedPassword", updatedUser.get().getPassword());
+    @Test
+    void findById_ShouldReturnUser_WhenIdExists() {
+        Optional<User> foundUser = userRepository.findById(testUser.getId());
+        assertTrue(foundUser.isPresent());
+        assertEquals("testUser", foundUser.get().getUsername());
+    }
+
+    @Test
+    void findById_ShouldReturnEmpty_WhenIdDoesNotExist() {
+        Optional<User> foundUser = userRepository.findById(999L);
+        assertFalse(foundUser.isPresent());
+    }
+
+    @Test
+    void deleteById_ShouldRemoveUser_WhenIdExists() {
+        userRepository.deleteById(testUser.getId());
+        assertFalse(userRepository.findById(testUser.getId()).isPresent());
+    }
+
+    @Test
+    void delete_ShouldRemoveUser_WhenUserExists() {
+        User userToDelete = new User();
+        userToDelete.setUsername("deleteMe");
+        userToDelete.setPassword("deleteMePassword");
+        userRepository.save(userToDelete);
+
+        userRepository.delete(userToDelete);
+
+        assertFalse(userRepository.findByUsername("deleteMe").isPresent());
+    }
+
+    @Test
+    void existsById_ShouldReturnTrue_WhenIdExists() {
+        assertTrue(userRepository.existsById(testUser.getId()));
+    }
+
+    @Test
+    void existsById_ShouldReturnFalse_WhenIdDoesNotExist() {
+        assertFalse(userRepository.existsById(999L));
     }
 }
