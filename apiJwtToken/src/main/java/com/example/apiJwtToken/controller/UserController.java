@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 
+import org.springframework.http.MediaType;
+
 @RestController
 @RequestMapping("/api/auth")
 public class UserController {
@@ -17,7 +19,7 @@ public class UserController {
         this.userService = userService;
     }
 
-    @PostMapping("/register")
+    @PostMapping(value = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> registerUser(@Valid @RequestBody UserRequest userRequest) {
         try {
             User user = userService.registerUser(userRequest.getUsername(), userRequest.getPassword());

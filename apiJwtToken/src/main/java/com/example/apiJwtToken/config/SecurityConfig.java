@@ -1,7 +1,8 @@
 package com.example.apiJwtToken.config;
 
+import com.example.apiJwtToken.security.JwtAuthenticationFilter;
 import com.example.apiJwtToken.service.CustomUserDetailsService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.servlet.http.HttpServletResponse;  // ✅ Import added
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,6 +15,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
 @Configuration
@@ -21,7 +23,7 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
-    private AuthenticationProvider authenticationProvider; //Remove autowired
+    private AuthenticationProvider authenticationProvider; 
 
     public SecurityConfig(CustomUserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
@@ -32,20 +34,22 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/api/auth/login", "/api/auth/register", "/error").permitAll()
-                    .requestMatchers("/**").authenticated()
-                    .anyRequest().authenticated())
-                .sessionManagement(management -> management
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider()) // Use the bean method
-                .logout(logout -> logout
-                    .logoutUrl("/api/auth/logout")
-                    .addLogoutHandler(logoutHandler()));
-    
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/login", "/api/auth/register", "/error").permitAll()
+                .anyRequest().authenticated())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .logout(logout -> logout
+                .logoutUrl("/api/auth/logout")
+                .logoutSuccessHandler((request, response, authentication) -> {  
+                    response.setStatus(HttpServletResponse.SC_OK);  // ✅ Fixed issue here
+                })
+                .deleteCookies("JSESSIONID"));
+
         return http.build();
     }
 

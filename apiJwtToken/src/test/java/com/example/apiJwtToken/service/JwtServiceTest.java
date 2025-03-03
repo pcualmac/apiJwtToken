@@ -136,4 +136,49 @@ class JwtServiceTest {
         long diff = Math.abs(expiration.getTime() - expectedExpirationTime);
         assertTrue(diff < 1000, "Expiration time difference should be within acceptable range, but was " + diff);
     }
+
+    @Test
+    void testValidateToken_shouldReturnTrueForValidToken() {
+        UserDetails userDetails = User.withUsername("validuser")
+                .password("password")
+                .build();
+
+        String token = jwtService.generateToken(userDetails);
+
+        // Validate token using the method under test
+        assertTrue(jwtService.validateToken(token, userDetails));
+    }
+
+    @Test
+    void testValidateToken_shouldReturnFalseForInvalidUsername() {
+        UserDetails originalUser = User.withUsername("user1")
+                .password("password")
+                .build();
+        String token = jwtService.generateToken(originalUser);
+
+        UserDetails anotherUser = User.withUsername("user2")
+                .password("password")
+                .build();
+
+        // Validate token for a different user
+        assertFalse(jwtService.validateToken(token, anotherUser));
+    }
+
+    @Test
+    void testValidateToken_shouldReturnFalseForExpiredToken() throws InterruptedException {
+        // Set a short expiration time for testing
+        ReflectionTestUtils.setField(jwtService, "jwtExpiration", 1000L);
+
+        UserDetails userDetails = User.withUsername("testuser")
+                .password("password")
+                .build();
+
+        String token = jwtService.generateToken(userDetails);
+
+        // Wait for token to expire
+        Thread.sleep(1500);
+
+        // Validate token after expiration
+        assertFalse(jwtService.validateToken(token, userDetails));
+    }
 }
